@@ -1,0 +1,6 @@
+streamlit
+reportlab
+requests
+pandas
+openpyxl
+python-docx
