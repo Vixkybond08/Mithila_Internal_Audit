@@ -8,7 +8,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
 
-st.set_page_config(page_title="Mithila Audit System - Dynamic Grid", layout="wide")
+st.set_page_config(page_title="Mithila Audit System - Fixed Grid", layout="wide")
 
 # ==============================================================================
 # ०. रोमनलाई नेपाली युनिकोडमा बदल्ने फङ्ग्सन
@@ -93,7 +93,7 @@ with tab2:
     st.write("ख) शाखा कार्यालयले उपलब्ध गराएको तथ्याङ्कको आधारमा यो प्रतिवेदन तयार पारिएको छ ।")
 
     # --------------------------------------------------------------------------
-    # ३. नगद तथा ढुकुटीको निरिक्षण (AUTO-CALCULATE EXCEL PATTERN)
+    # ३. नगद तथा ढुकुटीको निरिक्षण (EXCEL FORMAT WITH FIXED COLUMNS)
     # --------------------------------------------------------------------------
     st.header("३. नगद तथा ढुकुटीको निरिक्षण")
     st.write("📋 **एक्सेल ढाँचा तालिका:** परिमाण (Quantity) कोलममा संख्या हाल्नासाथ दायाँपट्टी रकम स्वतः हिसाब (Auto Calculate) हुनेछ:")
@@ -103,7 +103,7 @@ with tab2:
     row_amounts = {}
     total_physical_cash = 0.0
 
-    # Table Header Design
+    # Table Header Header
     st.markdown("""
     <table style='width:100%; border-collapse: collapse; text-align: left; margin-bottom: -15px;'>
         <tr style='background-color: #f0f2f6; font-weight: bold;'>
@@ -114,7 +114,7 @@ with tab2:
     </table>
     """, unsafe_allow_html=True)
 
-    # Rendering matrix row cells with exact width array matching
+    # Fixed Column Layout configuration
     for n in notes_base:
         grid_col1, grid_col2, grid_col3 = st.columns([2, 3, 3])
         
@@ -122,7 +122,7 @@ with tab2:
             st.markdown(f"<p style='padding-top: 15px; font-weight: bold; margin-left: 10px;'>रु. {n}</p>", unsafe_allow_html=True)
             
         with grid_col2:
-            noteCounts[n] = st.number_input("", min_value=0, value=0, step=1, key=f"dino_qty_v4_{n}", label_visibility="collapsed")
+            noteCounts[n] = st.number_input("", min_value=0, value=0, step=1, key=f"dino_qty_fixed_{n}", label_visibility="collapsed")
             
         with grid_col3:
             row_amounts[n] = n * noteCounts[n]
@@ -135,7 +135,7 @@ with tab2:
     # CBS Balance Entry
     col_cbs1, col_cbs2 = st.columns(2)
     with col_cbs1:
-        system_cash = st.number_input("सफ्टवेयर (CBS) मा देखिएको नगद मौज्दात (रु.):", min_value=0.0, value=0.0, step=1.0, key="system_cash_v4")
+        system_cash = st.number_input("सफ्टवेयर (CBS) मा देखिएको नगद मौज्दात (रु.):", min_value=0.0, value=0.0, step=1.0, key="system_cash_fixed")
     with col_cbs2:
         inspection_date_in = st.text_input("भौतिक निरीक्षण विवरण:", "miti 2083/01/06 (10:15 baje)")
         inspection_date = convert_to_nepali(inspection_date_in)
@@ -159,7 +159,7 @@ with tab2:
     st.write("---")
 
 # ==============================================================================
-# WORD (.DOCX) COMPILE ENGINE (WITHOUT 3.1 DAY END)
+# WORD (.DOCX) COMPILE ENGINE
 # ==============================================================================
 def build_word_document():
     doc = Document()
