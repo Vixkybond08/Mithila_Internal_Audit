@@ -1,191 +1,262 @@
 import streamlit as st
-import pandas as pd
+import datetime
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 import io
-import requests
-from docx import Document
-from docx.shared import Pt, Inches
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml import parse_xml
-from docx.oxml.ns import nsdecls
 
-st.set_page_config(page_title="Mithila Audit System", layout="wide")
+# 1. Page Configuration
+st.set_page_config(page_title="Mithila Internal Audit", page_icon="🔐", layout="centered")
 
-# ==============================================================================
-# ०. रोमनलाई नेपाली युनिकोडमा बदल्ने फङ्ग्सन
-# ==============================================================================
-def convert_to_nepali(text_input):
-    if not text_input or text_input.strip() == "":
-        return text_input
-    try:
-        url = f"https://google.com{text_input}&itc=ne-t-i0-und&num=1"
-        response = requests.get(url, timeout=3)
-        if response.status_code == 200:
-            data = response.json()
-            if data[0] == "SUCCESS":
-                return data[1][0][1][0]
-    except:
-        pass
-    return text_input
+# 2. Session State Initialization
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "failed_attempts" not in st.session_state:
+    st.session_state.failed_attempts = 0
+if "blocked" not in st.session_state:
+    st.session_state.blocked = False
+if "current_step" not in st.session_state:
+    st.session_state.current_step = 0
 
-# ==============================================================================
-# १. प्रतिवेदन सेटिङहरू (SIDEBAR)
-# ==============================================================================
-st.sidebar.title("अडिट प्रतिवेदन सेटिङहरू")
-shakha_input = st.sidebar.text_input("शाखा कार्यालय (रोमन):", "choharwa, siraha")
-shakha_name = convert_to_nepali(shakha_input)
+# App Name Constant
+APP_NAME = "mithila_internal_audit"
 
-pesh_input = st.sidebar.text_input("पेस गरिएको मिति:", "31 baishakh 2083")
-pesh_miti = convert_to_nepali(pesh_input)
+# 3. Security PIN Calculation (Day + Month + "98")
+now = datetime.datetime.now()
+correct_pin = f"{now.day + now.month}98"
 
-aud1_input = st.sidebar.text_input("लेखापरीक्षक १:", "roshan gurung")
-auditor_1 = convert_to_nepali(aud1_input)
+# --- LOGIN SCREEN ---
+if not st.session_state.authenticated:
+    st.title("🔐 Mithila Laghubitta Audit Security")
+    st.subheader("Mithila Internal Audit System")
 
-aud2_input = st.sidebar.text_input("लेखापरीक्षक २:", "suresh patel")
-auditor_2 = convert_to_nepali(aud2_input)
-
-# ==============================================================================
-# मुख्य स्क्रिन लेआउट (TABS)
-# ==============================================================================
-tab1, tab2 = st.tabs(["📄 पाना १ (Cover Page)", "📊 पाना २ (Summary & Cash Audit)"])
-
-with tab1:
-    st.markdown("<p style='text-align: right; font-style: italic; color: gray;'>Mithila Laghubitta Bittiya Sanstha Ltd / Choharwa Branch</p>", unsafe_allow_html=True)
-    st.write("---")
-    st.markdown("<h1 style='text-align: center; font-size: 42px; margin-top: 50px;'>आन्तरिक लेखापरीक्षण प्रतिबेदन</h1>", unsafe_allow_html=True)
-    st.markdown(f"<h3 style='text-align: center; font-size: 26px;'>शाखा कार्यालय {shakha_name}</h3>", unsafe_allow_html=True)
-    st.markdown("<h1 style='text-align: center; margin-top: 30px; color: gray;'>↕</h1>", unsafe_allow_html=True)
-    st.markdown("<h4 style='text-align: center; font-size: 20px;'><b>पेश गरिएको :</b></h4>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; font-size: 18px;'>मिथिला लघुवित्त वित्तीय संस्था लिमिटेड<br>केन्द्रीय कार्यालय, ढल्केवर, धनुषा ।</p>", unsafe_allow_html=True)
-    st.markdown("<h1 style='text-align: center; margin-top: 20px; color: gray;'>↕</h1>", unsafe_allow_html=True)
-    st.markdown("<h4 style='text-align: center; font-size: 20px;'><b>प्रतिबेदन पेश गर्ने :</b></h4>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; font-size: 18px;'>आन्तरिक लेखापरीक्षण विभाग<br>केन्द्रीय कार्यालय, ढल्केवर, धनुषा ।</p>", unsafe_allow_html=True)
-    st.markdown(f"<p style='text-align: center; font-size: 16px;'><b>आ. लेखापरीक्षकहरु :</b> {auditor_1} / {auditor_2}</p>", unsafe_allow_html=True)
-    st.write("---")
-
-with tab2:
-    st.markdown(f"<p style='text-align: right; font-weight: bold;'>मिति: {pesh_miti}</p>", unsafe_allow_html=True)
-    
-    st.header("१. शाखाको संक्षिप्त जानकारी")
-    init_indicators = {
-        "सूचकहरु (Indicators)": [
-            "लेखापरिक्षण अवधि (देखि - सम्म):", "शाखामा कार्यरत कर्मचारी:", "केन्द्र संख्या (#):", 
-            "सदस्य संख्या (#):", "ऋणी सदस्य संख्या (#):", "लगानीमा रहीरहेको रकम (रु.):", 
-            "बचत परिचालन (रु.):", "भाखा नाघेको कर्जा (रु.):", "भाखा नाघेको कर्जा प्रतिशत:", 
-            "सुक्ष्म निगरानीमा रहेको कर्जा (*):", "कर्मचारी उत्पादकत्व / केन्द्र:"
-        ],
-        "विवरण / तथ्याङ्क (Data)": [
-            "२०८२/०४/०१ देखि २०८२/११/३० सम्म", "४ जना (१ म्यासेन्जर सहित)", "९० वटा", 
-            "१२१२ जना", "८८४ जना", "१२,०१,८१,९२०.९२/-", 
-            "३,०४,१४,४८७.५४/-", "२,११,००,१२३/- (१७५ जना)", "१७.५५%", 
-            "३,७५,२१,९९६/-", "६०६ जना / ४५ वटा"
-        ]
-    }
-    df_ind_edit = st.data_editor(pd.DataFrame(init_indicators), use_container_width=True, key="editor_ind")
-    st.markdown("<small>* NPA मा नआएको तर भाखा नाघेर सुक्षम निगरानीमा रहेको कर्जा</small>", unsafe_allow_html=True)
-
-    st.header("२. आन्तरीक लेखापरिक्षण गर्दा अपनाईएका विधिहरु तथा आधारहरु")
-    st.write("क) कार्यालयको लेखा सम्बन्धका विषयबस्तुहरुको पुर्ण लेखा परिक्षण नमून परिक्षण विधिबाट गरिएको छ ।")
-    st.write("ख) शाखा कार्यालयले उपलब्ध गराएको तथ्याङ्कको आधारमा यो प्रतिवेदन तयार पारिएको छ ।")
-
-    # ==============================================================================
-    # ३. नगद तथा ढुकुटीको निरिक्षण (SAFE ERROR-FREE INPUT MATRIX)
-    # ==============================================================================
-    st.header("३. नगद तथा ढुकुटीको निरिक्षण")
-    st.write("👇 नोटको संख्या (Quantity) राख्नुहोस्, दायाँपट्टी कुल रकम (Amount) र तल कुल योग स्वतः हिसाब हुनेछ:")
-
-    notes_list = [1000, 500, 100, 50, 20, 10, 5, 2, 1]
-    noteCounts = {}
-    row_amounts = {}
-    total_physical_cash = 0.0
-
-    # Render simple input elements row by row
-    for n in notes_list:
-        qty = st.number_input(f"रु. {n} को संख्या (Quantity):", min_value=0, value=0, step=1, key=f"dino_qty_final_{n}")
-        noteCounts[n] = qty
-        row_amounts[n] = n * qty
-        total_physical_cash += row_amounts[n]
-        st.write(f"  ↳ रु. {n} को कुल रकम (Amount): **रु. {row_amounts[n]:,}/-**")
-
-    st.markdown("---")
-    st.markdown(f"### 💰 ढुकुटीमा फेला परेको कुल भौतिक नगद: **रु. {total_physical_cash:,}/-**")
-    
-    system_cash = st.number_input("सफ्टवेयर (CBS) मा देखिएको नगद मौज्दात (रु.):", min_value=0.0, value=0.0, step=1.0, key="system_cash_final")
-    inspection_date_in = st.text_input("भौतिक निरीक्षण विवरण:", "miti 2083/01/06 (10:15 baje)")
-    inspection_date = convert_to_nepali(inspection_date_in)
-
-    farak_amount = total_physical_cash - system_cash
-    if farak_amount == 0:
-        remarks_str = "मिलेको (दुरुस्त रहेको)"
-    elif farak_amount < 0:
-        remarks_str = f"रु. {abs(farak_amount):,}/- ले ढुकुटीमा कमी फेला परेको"
+    if st.session_state.blocked:
+        st.error("❌ ACCESS DENIED FOR TODAY. Maximum attempts reached! Please try again tomorrow.")
     else:
-        remarks_str = f"रु. {farak_amount:,}/- ले ढुकुटीमा बढी फेला परेको"
-
-    st.write("##### ख) ढुकुटीको नगद भिडान तालिका")
-    recon_rows = {
-        "विवरण (Reconciliation)": ["भौतिक निरीक्षणमा पाइएको नगद", "सफट्वेयर (CBS) मा देखिएको नगद", "फरक रकम (Difference)", "कैफियत (Remarks)"],
-        "रकम / विवरण": [f"रु. {total_physical_cash:,}/-", f"रु. {system_cash:,}/-", f"रु. {farak_amount:,}/-", remarks_str]
-    }
-    st.table(pd.DataFrame(recon_rows).set_index("विवरण (Reconciliation)"))
-
-# ==============================================================================
-# WORD (.DOCX) COMPILE ENGINE
-# ==============================================================================
-def build_word_document():
-    doc = Document()
-    for section in doc.sections:
-        section.top_margin, section.bottom_margin = Inches(1), Inches(1)
-        section.left_margin, section.right_margin = Inches(1), Inches(1)
-
-    p_title = doc.add_paragraph()
-    p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_title.add_run("आन्तरिक लेखापरीक्षण प्रतिबेदन\n").font.size = Pt(28)
-    p_title.add_run(f"शाखा कार्यालय {shakha_name}\n").font.size = Pt(18)
-    
-    doc.add_page_break()
-    
-    doc.add_heading("१. शाखाको संक्षिप्त जानकारी", level=1)
-    t1 = doc.add_table(rows=1, cols=2)
-    t1.style = 'Table Grid'
-    for _, row in df_ind_edit.iterrows():
-        rc = t1.add_row().cells
-        rc.text = str(row["सूचकहरु (Indicators)"])
-        rc.text = str(row["विवरण / तथ्याङ्क (Data)"])
-
-    doc.add_heading("३. नगद तथा ढुकुटीको निरिक्षण", level=1)
-    t2 = doc.add_table(rows=1, cols=3)
-    t2.style = 'Table Grid'
-    hdr = t2.rows[0].cells
-    hdr[0].text, hdr[1].text, hdr[2].text = 'cash dino', 'Quantity', 'Amount'
-    
-    for n in notes_list:
-        rc = t2.add_row().cells
-        rc.text = f"रु. {n}"
-        rc.text = f"{noteCounts[n]:,}"
-        rc.text = f"रु. {row_amounts[n]:,}/-"
+        pin_input = st.text_input("ENTER PIN", type="password", help="Contact Mithila Laghubitta for PIN")
         
-    doc.add_paragraph("\n")
-    t3 = doc.add_table(rows=1, cols=3)
-    t3.style = 'Table Grid'
-    hdr3 = t3.rows[0].cells
-    hdr3[0].text, hdr3[1].text, hdr3[2].text = 'विवरण', 'मौज्दात रकम', 'कैफियत'
+        if st.button("Verify & Access", type="primary"):
+            if pin_input == correct_pin:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.session_state.failed_attempts += 1
+                if st.session_state.failed_attempts >= 3:
+                    st.session_state.blocked = True
+                    st.error("❌ Maximum attempts reached! App blocked until tomorrow.")
+                    st.rerun()
+                else:
+                    st.error(f"❌ Wrong Pin! (Attempts left: {3 - st.session_state.failed_attempts}). Please contact with Mithila Laghubitta.")
+
+    st.caption("Copyright Roshan Gurung 9845118748")
+
+# --- MAIN AUDIT APP SCREEN ---
+else:
+    st.title("📋 MLBSL Checklist & Audit Form")
     
-    r1 = t3.add_row().cells
-    r1.text, r1.text, r1.text = "भौतिक नगद मौज्दात", f"रु. {total_physical_cash:,}/-", inspection_date
-    r2 = t3.add_row().cells
-    r2.text, r2.text, r2.text = "सफट्वेयर (CBS) नगद", f"रु. {system_cash:,}/-", ""
-    r3 = t3.add_row().cells
-    r3.text, r3.text, r3.text = "फरक रकम", f"रु. {farak_amount:,}/-", remarks_str
+    # Step Selection Sidebar or Top Progress
+    step = st.radio("Audit Navigation Steps", ["Step 1: General Info", "Step 2: Financial Metrics", "Step 3: Cash Count", "Step 4: Checklist Registers"], index=st.session_state.current_step, horizontal=True)
 
-    bio = io.BytesIO()
-    doc.save(bio)
-    bio.seek(0)
-    return bio
+    # --- STEP 1: GENERAL INFO ---
+    if step == "Step 1: General Info":
+        st.header("🏢 Branch & Audit Information")
+        branch_name = st.text_input("Branch Name", value=st.session_state.get('branch_name', ''))
+        branch_address = st.text_input("Branch Address", value=st.session_state.get('branch_address', ''))
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            audit_p_from = st.date_input("Audit Period From", value=st.session_state.get('audit_p_from', datetime.date.today()))
+            audit_d_from = st.date_input("Audit Date From", value=st.session_state.get('audit_d_from', datetime.date.today()))
+        with col2:
+            audit_p_to = st.date_input("Audit Period To", value=st.session_state.get('audit_p_to', datetime.date.today()))
+            audit_d_to = st.date_input("Audit Date To", value=st.session_state.get('audit_d_to', datetime.date.today()))
+            
+        # Save to state
+        st.session_state.branch_name = branch_name
+        st.session_state.branch_address = branch_address
+        st.session_state.audit_p_from = audit_p_from
+        st.session_state.audit_p_to = audit_p_to
+        st.session_state.audit_d_from = audit_d_from
+        st.session_state.audit_d_to = audit_d_to
 
-st.sidebar.markdown("---")
-st.sidebar.download_button(
-    label="📝 Word (.docx) डाउनलोड गर्नुहोस्",
-    data=build_word_document(),
-    file_name=f"Mithila_Audit_Report_{shakha_name}.docx",
-    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-)
+    # --- STEP 2: FINANCIAL METRICS ---
+    elif step == "Step 2: Financial Metrics":
+        st.header("📊 Branch Portfolio & Data Metrics")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            no_of_staffs = st.number_input("No of Staffs", min_value=0, step=1, value=st.session_state.get('no_of_staffs', 0))
+            no_of_centers = st.number_input("No of Centers", min_value=0, step=1, value=st.session_state.get('no_of_centers', 0))
+            no_of_members = st.number_input("No of Members", min_value=0, step=1, value=st.session_state.get('no_of_members', 0))
+            no_of_borrowers = st.number_input("No of Borrowers", min_value=0, step=1, value=st.session_state.get('no_of_borrowers', 0))
+        with col2:
+            loan_portfolio = st.number_input("Loan Portfolio (Rs.)", min_value=0.0, step=100.0, value=st.session_state.get('loan_portfolio', 0.0))
+            saving_balance = st.number_input("Saving Balance (Rs.)", min_value=0.0, step=100.0, value=st.session_state.get('saving_balance', 0.0))
+            overdue_loan = st.number_input("Overdue Loan (Rs.)", min_value=0.0, step=100.0, value=st.session_state.get('overdue_loan', 0.0))
+            watchlist = st.number_input("Watchlist (Rs.)", min_value=0.0, step=100.0, value=st.session_state.get('watchlist', 0.0))
+
+        # Dynamic Calculations
+        npa_val = (overdue_loan / loan_portfolio * 100) if loan_portfolio > 0 else 0.0
+        prod_val = (loan_portfolio / no_of_staffs) if no_of_staffs > 0 else 0.0
+        spc_val = (no_of_centers / no_of_staffs) if no_of_staffs > 0 else 0.0
+
+        # NPA Metrics Check logic
+        if npa_val <= 1.0:
+            npa_status, npa_color = "Excellent", "green"
+        elif npa_val <= 3.0:
+            npa_status, npa_color = "Good", "blue"
+        else:
+            npa_status, npa_color = "Needs Improvement / High Risk", "red"
+
+        st.markdown(f"**NPA Percentage:** :{npa_color}[{npa_val:.2f} % ({npa_status})]")
+        st.metric("Productivity (Portfolio/Staff)", f"Rs. {prod_val:,.2f}")
+        st.metric("Single Point Contact (Center/Staff)", f"{spc_val:.2f}")
+
+        # Save to state
+        st.session_state.no_of_staffs = no_of_staffs
+        st.session_state.no_of_centers = no_of_centers
+        st.session_state.no_of_members = no_of_members
+        st.session_state.no_of_borrowers = no_of_borrowers
+        st.session_state.loan_portfolio = loan_portfolio
+        st.session_state.saving_balance = saving_balance
+        st.session_state.overdue_loan = overdue_loan
+        st.session_state.watchlist = watchlist
+        st.session_state.npa_str = f"{npa_val:.2f} % ({npa_status})"
+
+    # --- STEP 3: CASH COUNT ---
+    elif step == "Step 3: Cash Count":
+        st.header("💵 Cash Verification / Note Count")
+        notes = [1000, 500, 100, 50, 20, 10, 5, 2, 1]
+        
+        if 'note_counts' not in st.session_state:
+            st.session_state.note_counts = {n: 0 for n in notes}
+
+        total_cash = 0.0
+        st.markdown("Enter quantity for each denomination:")
+        
+        grid_cols = st.columns(3)
+        for idx, n in enumerate(notes):
+            col_target = grid_cols[idx % 3]
+            with col_target:
+                count = st.number_input(f"Rs. {n} Note", min_value=0, step=1, value=st.session_state.note_counts[n], key=f"note_{n}")
+                st.session_state.note_counts[n] = count
+                total_cash += count * n
+
+        st.subheader(f"Total Cash Calculated: Rs. {total_cash:,.2f}")
+        st.session_state.total_cash = total_cash
+
+    # --- STEP 4: CHECKLIST REGISTERS & PDF EXPORT ---
+    elif step == "Step 4: Checklist Registers":
+        st.header("📑 Control Registers & Books Checklist")
+        
+        items = [
+            "1. Attendance Register", "2. Field Register", "3. Leave Record Register",
+            "4. Staff Leave Reg/File", "5. Day Book", "6. Cash Register",
+            "7. Cash In Transit Register", "8. Check Book Register", "9. Vault Key Register",
+            "10. Loan Deed Register", "11. Loan Sub-committee Reg.", "12. Loan Utilization Register",
+            "13. Delay Follow-up Register", "14. Collateral Loan Register", "15. Darta/Chalani Register",
+            "16. Darta/Chalani File", "17. Circular File", "18. Staff Meeting Register",
+            "19. Staff Target/Progress File", "20. Stationery Stock Register", "21. Fixed Assets Register",
+            "22. Low-Cost Assets Register", "23. Guest Register", "24. Area/HO Inspection Report/File",
+            "25. Center Meeting File", "26. Nagadi Rasid Bharpai", "27. Complaint Box/Register",
+            "28. Passbook Distr. Register", "29. Passbook Verification Reg.", "30. Member Registration Reg.",
+            "31. Dropout Register", "32. Insurance Death Claim Reg."
+        ]
+
+        if 'checklist_data' not in st.session_state:
+            st.session_state.checklist_data = {i: {"raised": True, "updated": True, "remarks": ""} for i in items}
+
+        for item in items:
+            with st.expander(item, expanded=False):
+                c1, c2 = st.columns(2)
+                with c1:
+                    raised = st.checkbox("Raised / Maintained", value=st.session_state.checklist_data[item]["raised"], key=f"r_{item}")
+                    updated = st.checkbox("Up to Date", value=st.session_state.checklist_data[item]["updated"], key=f"u_{item}")
+                with c2:
+                    remark = st.text_input("Remarks", value=st.session_state.checklist_data[item]["remarks"], key=f"rem_{item}")
+                
+                st.session_state.checklist_data[item] = {"raised": raised, "updated": updated, "remarks": remark}
+
+        st.markdown("---")
+        st.subheader("🏁 Finish and Generate Audit Report")
+
+        # ReportLAB PDF Generation Mechanism
+        def generate_pdf():
+            buffer = io.BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+            story = []
+            styles = getSampleStyleSheet()
+            
+            # Custom Styles
+            title_style = ParagraphStyle(name='TitleStyle', fontSize=18, leading=22, alignment=1, spaceAfter=15, textColor=colors.HexColor("#1A365D"))
+            body_style = getSampleStyleSheet()['BodyText']
+            
+            story.append(Paragraph("<b>MITHILA INTERNAL AUDIT REPORT</b>", title_style))
+            story.append(Paragraph(f"<b>Branch Name:</b> {st.session_state.get('branch_name', 'N/A')} | <b>Address:</b> {st.session_state.get('branch_address', 'N/A')}", body_style))
+            story.append(Paragraph(f"<b>Audit Period:</b> {st.session_state.get('audit_p_from')} to {st.session_state.get('audit_p_to')} | <b>Audit Date:</b> {st.session_state.get('audit_d_from')} to {st.session_state.get('audit_d_to')}", body_style))
+            story.append(Spacer(1, 15))
+            
+            # Portfolio Data Table
+            story.append(Paragraph("<b>Financial Metrics & Indicators:</b>", styles['Heading3']))
+            fin_data = [
+                ["Metric", "Value", "Metric", "Value"],
+                ["Total Staffs", str(st.session_state.get('no_of_staffs', 0)), "Loan Portfolio", f"Rs. {st.session_state.get('loan_portfolio', 0.0):,}"],
+                ["Total Centers", str(st.session_state.get('no_of_centers', 0)), "Saving Balance", f"Rs. {st.session_state.get('saving_balance', 0.0):,}"],
+                ["Overdue Loan", f"Rs. {st.session_state.get('overdue_loan', 0.0):,}", "NPA % Status", st.session_state.get('npa_str', '0.00 %')],
+                ["Total Verified Cash", f"Rs. {st.session_state.get('total_cash', 0.0):,}", "-", "-"]
+            ]
+            t_fin = Table(fin_data, colWidths=[130, 130, 130, 130])
+            t_fin.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('PADDING', (0,0), (-1,-1), 6),
+            ]))
+            story.append(t_fin)
+            story.append(Spacer(1, 15))
+
+            # Checklist Table
+            story.append(Paragraph("<b>Registers & System Checklist Details:</b>", styles['Heading3']))
+            chk_table_data = [["Register / Book Item", "Maintained", "Up to Date", "Remarks"]]
+            
+            for item in items:
+                v = st.session_state.checklist_data[item]
+                chk_table_data.append([
+                    item, 
+                    "Yes" if v["raised"] else "No", 
+                    "Yes" if v["updated"] else "No", 
+                    v["remarks"]
+                ])
+                
+            t_chk = Table(chk_table_data, colWidths=[200, 70, 70, 180])
+            t_chk.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#1A365D")),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+                ('PADDING', (0,0), (-1,-1), 4),
+                ('FONTSIZE', (0,0), (-1,-1), 9),
+            ]))
+            story.append(t_chk)
+            
+            doc.build(story)
+            buffer.seek(0)
+            return buffer
+
+        # Download Button
+        pdf_file = generate_pdf()
+        st.download_button(
+            label="📥 Download Audit PDF Report",
+            data=pdf_file,
+            file_name=f"Audit_Report_{st.session_state.get('branch_name','Branch')}.pdf",
+            mime="application/pdf"
+        )
+        
+        if st.button("Logout / Reset System", type="secondary"):
+            st.session_state.authenticated = False
+            st.session_state.current_step = 0
+            st.rerun()
+
+    # Footer Copyright text
+    st.markdown("---")
+    st.caption("Mithila Internal Audit Web Application • Developed with Streamlit")
