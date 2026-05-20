@@ -8,7 +8,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
 
-st.set_page_config(page_title="Mithila Audit System - Fixed Grid", layout="wide")
+st.set_page_config(page_title="Mithila Audit System - Fixed Layout", layout="wide")
 
 # ==============================================================================
 # ०. रोमनलाई नेपाली युनिकोडमा बदल्ने फङ्ग्सन
@@ -22,7 +22,7 @@ def convert_to_nepali(text_input):
         if response.status_code == 200:
             data = response.json()
             if data[0] == "SUCCESS":
-                return data[1][0][0]
+                return data[0][0][0]
     except:
         pass
     return text_input
@@ -69,7 +69,6 @@ with tab2:
     st.markdown(f"<p style='text-align: right; font-weight: bold;'>मिति: {pesh_miti}</p>", unsafe_allow_html=True)
     
     st.header("१. शाखाको संक्षिप्त जानकारी")
-    st.write("💡 विवरण सम्पादन गर्न तलको कोठामा डबल क्लिक गर्नुहोस्:")
     
     init_indicators = {
         "सूचकहरु (Indicators)": [
@@ -93,7 +92,7 @@ with tab2:
     st.write("ख) शाखा कार्यालयले उपलब्ध गराएको तथ्याङ्कको आधारमा यो प्रतिवेदन तयार पारिएको छ ।")
 
     # --------------------------------------------------------------------------
-    # ३. नगद तथा ढुकुटीको निरिक्षण (EXCEL FORMAT WITH FIXED COLUMNS)
+    # ३. नगद तथा ढुकुटीको निरिक्षण (SAFE ERROR-FREE MATRIX)
     # --------------------------------------------------------------------------
     st.header("३. नगद तथा ढुकुटीको निरिक्षण")
     st.write("📋 **एक्सेल ढाँचा तालिका:** परिमाण (Quantity) कोलममा संख्या हाल्नासाथ दायाँपट्टी रकम स्वतः हिसाब (Auto Calculate) हुनेछ:")
@@ -103,31 +102,20 @@ with tab2:
     row_amounts = {}
     total_physical_cash = 0.0
 
-    # Table Header Header
-    st.markdown("""
-    <table style='width:100%; border-collapse: collapse; text-align: left; margin-bottom: -15px;'>
-        <tr style='background-color: #f0f2f6; font-weight: bold;'>
-            <th style='padding: 8px; width: 25%; border: 1px solid #ddd;'>विवरण (cash dino)</th>
-            <th style='padding: 8px; width: 37.5%; border: 1px solid #ddd;'>परिमाण (Quantity)</th>
-            <th style='padding: 8px; width: 37.5%; border: 1px solid #ddd;'>कुल रकम (Amount)</th>
-        </tr>
-    </table>
-    """, unsafe_allow_html=True)
-
-    # Fixed Column Layout configuration
+    # ३ वटा सिधा कोलम बनाएर डाटाहरू फिक्स गरिएको छ
     for n in notes_base:
-        grid_col1, grid_col2, grid_col3 = st.columns([2, 3, 3])
+        grid_col1, grid_col2, grid_col3 = st.columns(3)
         
         with grid_col1:
-            st.markdown(f"<p style='padding-top: 15px; font-weight: bold; margin-left: 10px;'>रु. {n}</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='padding-top: 15px; font-weight: bold;'>रु. {n}</p>", unsafe_allow_html=True)
             
         with grid_col2:
-            noteCounts[n] = st.number_input("", min_value=0, value=0, step=1, key=f"dino_qty_fixed_{n}", label_visibility="collapsed")
+            noteCounts[n] = st.number_input(f"रु. {n} संख्या", min_value=0, value=0, step=1, key=f"dino_qty_final_{n}", label_visibility="collapsed")
             
         with grid_col3:
             row_amounts[n] = n * noteCounts[n]
             total_physical_cash += row_amounts[n]
-            st.markdown(f"<p style='padding-top: 15px; font-weight: bold; color: green; margin-left: 10px;'>रु. {row_amounts[n]:,}/-</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='padding-top: 15px; font-weight: bold; color: green;'>रु. {row_amounts[n]:,}/-</p>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown(f"### 💰 ढुकुटीमा फेला परेको कुल भौतिक नगद: **रु. {total_physical_cash:,}/-**")
@@ -135,7 +123,7 @@ with tab2:
     # CBS Balance Entry
     col_cbs1, col_cbs2 = st.columns(2)
     with col_cbs1:
-        system_cash = st.number_input("सफ्टवेयर (CBS) मा देखिएको नगद मौज्दात (रु.):", min_value=0.0, value=0.0, step=1.0, key="system_cash_fixed")
+        system_cash = st.number_input("सफ्टवेयर (CBS) मा देखिएको नगद मौज्दात (रु.):", min_value=0.0, value=0.0, step=1.0, key="system_cash_final")
     with col_cbs2:
         inspection_date_in = st.text_input("भौतिक निरीक्षण विवरण:", "miti 2083/01/06 (10:15 baje)")
         inspection_date = convert_to_nepali(inspection_date_in)
