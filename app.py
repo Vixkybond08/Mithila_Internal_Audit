@@ -8,7 +8,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
 
-st.set_page_config(page_title="Mithila Audit System - Grid", layout="wide")
+st.set_page_config(page_title="Mithila Audit System - Dynamic Grid", layout="wide")
 
 # ==============================================================================
 # ०. रोमनलाई नेपाली युनिकोडमा बदल्ने फङ्ग्सन
@@ -21,8 +21,8 @@ def convert_to_nepali(text_input):
         response = requests.get(url, timeout=3)
         if response.status_code == 200:
             data = response.json()
-            if data[0] == "SUCCESS":
-                return data[1][0][1][0]
+            if data == "SUCCESS":
+                return data
     except:
         pass
     return text_input
@@ -63,13 +63,13 @@ with tab1:
     st.write("---")
 
 # ------------------------------------------------------------------------------
-# TAB 2: EXCEL-STYLE GRID INTERFACE
+# TAB 2: EXCEL-STYLE COMPACT INTERFACE
 # ------------------------------------------------------------------------------
 with tab2:
     st.markdown(f"<p style='text-align: right; font-weight: bold;'>मिति: {pesh_miti}</p>", unsafe_allow_html=True)
     
     st.header("१. शाखाको संक्षिप्त जानकारी")
-    st.write("💡 तालिका भित्र सिधै डबल क्लिक गरेर विवरण परिमार्जन गर्न सक्नुहुन्छ:")
+    st.write("💡 विवरण सम्पादन गर्न तलको कोठामा डबल क्लिक गर्नुहोस्:")
     
     init_indicators = {
         "सूचकहरु (Indicators)": [
@@ -86,7 +86,6 @@ with tab2:
         ]
     }
     df_ind_edit = st.data_editor(pd.DataFrame(init_indicators), use_container_width=True, key="editor_ind")
-    
     st.markdown("<small>* NPA मा नआएको तर भाखा नाघेर सुक्षम निगरानीमा रहेको कर्जा</small>", unsafe_allow_html=True)
 
     st.header("२. आन्तरीक लेखापरिक्षण गर्दा अपनाईएका विधिहरु तथा आधारहरु")
@@ -94,49 +93,53 @@ with tab2:
     st.write("ख) शाखा कार्यालयले उपलब्ध गराएको तथ्याङ्कको आधारमा यो प्रतिवेदन तयार पारिएको छ ।")
 
     # --------------------------------------------------------------------------
-    # ३. नगद तथा ढुकुटीको निरिक्षण
+    # ३. नगद तथा ढुकुटीको निरिक्षण (EXCEL INTERFACE WITH AUTO-CALCULATE)
     # --------------------------------------------------------------------------
     st.header("३. नगद तथा ढुकुटीको निरिक्षण")
-    st.write("📋 **एक्सेल ढाँचा तालिका:** तलको **'परिमाण (Quantity)'** कोलममा सिधै दर अनुसारको संख्या टाइप गर्नुहोस्:")
+    st.write("📋 **एक्सेल ढाँचा तालिका:** परिमाण (Quantity) कोलममा संख्या हाल्नासाथ दायाँपट्टी रकम स्वतः हिसाब (Auto Calculate) हुनेछ:")
 
-    notes_base = [1000, 500, 100, 50, 20, 10, 5, 2, 1]
-    
-    # Initialize dictionary structure for clean caching
-    if "cash_df" not in st.session_state:
-        st.session_state.cash_df = pd.DataFrame({
-            "विवरण (cash dino)": [f"रु. {x}" for x in notes_base],
-            "परिमाण (Quantity)": [0, 0, 0, 0, 0, 0, 0, 0, 0],
-            "कुल रकम (Amount)": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        })
-
-    # Render data editor grid
-    edited_cash_df = st.data_editor(
-        st.session_state.cash_df,
-        column_config={
-            "विवरण (cash dino)": st.column_config.TextColumn("विवरण (cash dino)", disabled=True),
-            "परिमाण (Quantity)": st.column_config.NumberColumn("परिमाण (Quantity)", min_value=0, default=0),
-            "कुल रकम (Amount)": st.column_config.NumberColumn("कुल रकम (Amount)", disabled=True)
-        },
-        use_container_width=True,
-        key="cash_matrix_editor_v2"
-    )
-
-    # Recalculate row amounts instantly
+    notes_base =
+    noteCounts = {}
+    row_amounts = {}
     total_physical_cash = 0.0
-    for idx, note_val in enumerate(notes_base):
-        qty = edited_cash_df.at[idx, "परिमाण (Quantity)"]
-        row_amt = note_val * qty
-        edited_cash_df.at[idx, "कुल रकम (Amount)"] = row_amt
-        total_physical_cash += row_amt
 
-    st.markdown(f"### 💰 ढुकुटीमा फेला परेको कुल नगद: **रु. {total_physical_cash:,}/-**")
+    # Building a pure custom Grid Layout to show data exact like Excel with instant triggers
+    st.markdown("""
+    <table style='width:100%; border-collapse: collapse; text-align: left;'>
+        <tr style='background-color: #f0f2f6; font-weight: bold;'>
+            <th style='padding: 8px; border: 1px solid #ddd;'>विवरण (cash dino)</th>
+            <th style='padding: 8px; border: 1px solid #ddd;'>परिमाण (Quantity)</th>
+            <th style='padding: 8px; border: 1px solid #ddd;'>कुल रकम (Amount)</th>
+        </tr>
+    </table>
+    """, unsafe_allow_html=True)
+
+    # Rendering row-by-row matrix form fields
+    for n in notes_base:
+        grid_col1, grid_col2, grid_col3 = st.columns([2, 3, 3])
+        
+        with grid_col1:
+            st.markdown(f"<p style='padding-top: 25px; font-weight: bold;'>रु. {n}</p>", unsafe_allow_html=True)
+            
+        with grid_col2:
+            noteCounts[n] = st.number_input("", min_value=0, value=0, step=1, key=f"dino_qty_v3_{n}", label_visibility="collapsed")
+            
+        with grid_col3:
+            row_amounts[n] = n * noteCounts[n]
+            total_physical_cash += row_amounts[n]
+            st.markdown(f"<p style='padding-top: 25px; font-weight: bold; color: green;'>रु. {row_amounts[n]:,}/-</p>", unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown(f"### 💰 ढुकुटीमा फेला परेको कुल भौतिक नगद: **रु. {total_physical_cash:,}/-**")
     
+    # CBS Balance Entry
     col_cbs1, col_cbs2 = st.columns(2)
     with col_cbs1:
-        system_cash = st.number_input("सफ्टवेयर (CBS) मा देखिएको नगद मौज्दात (रु.):", min_value=0.0, value=0.0, step=1.0)
+        system_cash = st.number_input("सफ्टवेयर (CBS) मा देखिएको नगद मौज्दात (रु.):", min_value=0.0, value=0.0, step=1.0, key="system_cash_v3")
     with col_cbs2:
         inspection_date = st.text_input("भौतिक निरीक्षण विवरण:", "मिति २०८३/०१/०६ (१०:१५ बजे)")
 
+    # Mathematical Logic for Reconciliation
     farak_amount = total_physical_cash - system_cash
     if farak_amount == 0:
         remarks_str = "मिलेको (दुरुस्त रहेको)"
@@ -145,31 +148,17 @@ with tab2:
     else:
         remarks_str = f"रु. {farak_amount:,}/- ले ढुकुटीमा बढी फेला परेको"
 
+    # Display Reconciliation Table
+    st.write("##### ख) ढुकुटीको नगद भिडान तालिका")
     recon_rows = {
         "विवरण (Reconciliation)": ["भौतिक निरीक्षणमा पाइएको नगद", "सफट्वेयर (CBS) मा देखिएको नगद", "फरक रकम (Difference)", "कैफियत (Remarks)"],
         "रकम / विवरण": [f"रु. {total_physical_cash:,}/-", f"रु. {system_cash:,}/-", f"रु. {farak_amount:,}/-", remarks_str]
     }
     st.table(pd.DataFrame(recon_rows).set_index("विवरण (Reconciliation)"))
-
-    # --------------------------------------------------------------------------
-    # ३.१ Day End तथा दैनिक कारोबार
-    # --------------------------------------------------------------------------
-    st.header("३.१ Day End तथा दैनिक कारोबार")
-    st.write("📅 तलको तालिकामा दिन संख्या सिधै परिवर्तन गर्नुहोस:")
-    
-    init_dayend = {
-        "Day End अवस्था विवरण": [
-            "समयमै अर्थात् कारोबार भएकै दिन Day End गरेको जम्मा दिन:",
-            "१ दिन देखि ४ दिन सम्म ढिला Day End गरेको जम्मा दिन:",
-            "५ दिन देखि ९ दिन सम्म ढिला Day End गरेको जम्मा दिन:",
-            "१० दिन देखि १४ दिन सम्म ढिला Day End गरेको जम्मा दिन:"
-        ],
-        "जम्मा दिन संख्या": ["९ दिन", "१०६ दिन", "८० दिन", "४६ दिन"]
-    }
-    df_de_edit = st.data_editor(pd.DataFrame(init_dayend), use_container_width=True, key="editor_de")
+    st.write("---")
 
 # ==============================================================================
-# WORD (.DOCX) COMPILE ENGINE (FIXED INDEX BUG)
+# WORD (.DOCX) COMPILE ENGINE (WITHOUT 3.1 DAY END)
 # ==============================================================================
 def build_word_document():
     doc = Document()
@@ -178,7 +167,7 @@ def build_word_document():
         section.top_margin, section.bottom_margin = Inches(1), Inches(1)
         section.left_margin, section.right_margin = Inches(1), Inches(1)
 
-    # Page 1 Cover
+    # Page 1: Cover Sheet
     p_top = doc.add_paragraph()
     p_top.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     p_top.add_run("Mithila Laghubitta / Internal Audit Department").italic = True
@@ -196,65 +185,54 @@ def build_word_document():
     
     doc.add_page_break()
     
-    # Page 2 Summary
+    # Page 2: Summary indicators
     doc.add_heading("१. शाखाको संक्षिप्त जानकारी", level=1)
     t1 = doc.add_table(rows=1, cols=2)
     t1.style = 'Table Grid'
-    hdr_cells1 = t1.rows[0].cells
-    hdr_cells1[0].text, hdr_cells1[1].text = 'सूचकहरु', 'विवरण'
+    hdr_cells1 = t1.rows.cells
+    hdr_cells1.text, hdr_cells1.text = 'सूचकहरु', 'विवरण'
     
     for _, row in df_ind_edit.iterrows():
         rc = t1.add_row().cells
-        rc[0].text = str(row["सूचकहरु (Indicators)"])
-        rc[1].text = str(row["विवरण / तथ्याङ्क (Data)"])
+        rc.text = str(row["सूचकहरु (Indicators)"])
+        rc.text = str(row["विवरण / तथ्याङ्क (Data)"])
 
     doc.add_heading("२. विधि तथा आधारहरु", level=1)
     doc.add_paragraph("क) पूर्ण तथा नमूना परिक्षण विधिबाट लेखा परीक्षण गरिएको छ।")
+    doc.add_paragraph("ख) शाखा कार्यालयले उपलब्ध गराएको तथ्याङ्कको आधारमा यो प्रतिवेदन तयार पारिएको छ।")
     
-    # Page 2 Cash
+    # Page 2: Cash Denominations Exact Table
     doc.add_heading("३. नगद तथा ढुकुटीको निरिक्षण", level=1)
     t2 = doc.add_table(rows=1, cols=3)
     t2.style = 'Table Grid'
-    hdr_cells2 = t2.rows[0].cells
-    hdr_cells2[0].text, hdr_cells2[1].text, hdr_cells2[2].text = 'cash dino', 'Quantity', 'Amount'
+    hdr_cells2 = t2.rows.cells
+    hdr_cells2.text, hdr_cells2.text, hdr_cells2.text = 'cash dino', 'Quantity', 'Amount'
     
-    for idx, row in edited_cash_df.iterrows():
+    for n in notes_base:
         rc = t2.add_row().cells
-        rc[0].text = str(row["विवरण (cash dino)"])
-        rc[1].text = str(row["परिमाण (Quantity)"])
-        rc[2].text = f"रु. {row['कुल रकम (Amount)']:,}/-"
+        rc.text = f"रु. {n}"
+        rc.text = f"{noteCounts[n]:,}"
+        rc.text = f"रु. {row_amounts[n]:,}/-"
         
     doc.add_paragraph("\n")
     t3 = doc.add_table(rows=1, cols=3)
     t3.style = 'Table Grid'
-    hdr_cells3 = t3.rows[0].cells
-    hdr_cells3[0].text, hdr_cells3[1].text, hdr_cells3[2].text = 'विवरण', 'मौज्दात रकम', 'कैफियत'
+    hdr_cells3 = t3.rows.cells
+    hdr_cells3.text, hdr_cells3.text, hdr_cells3.text = 'विवरण', 'मौज्दात रकम', 'कैफियत'
     
     r1 = t3.add_row().cells
-    r1[0].text, r1[1].text, r1[2].text = "भौतिक नगद मौज्दात", f"रु. {total_physical_cash:,}/-", inspection_date
+    r1.text, r1.text, r1.text = "भौतिक नगद मौज्दात", f"रु. {total_physical_cash:,}/-", inspection_date
     r2 = t3.add_row().cells
-    r2[0].text, r2[1].text, r2[2].text = "सफट्वेयर (CBS) नगद", f"रु. {system_cash:,}/-", ""
+    r2.text, r2.text, r2.text = "सफट्वेयर (CBS) नगद", f"रु. {system_cash:,}/-", ""
     r3 = t3.add_row().cells
-    r3[0].text, r3[1].text, r3[2].text = "फरक रकम", f"रु. {farak_amount:,}/-", remarks_str
-
-    # Page 2 Dayend
-    doc.add_heading("३.१ Day End तथा दैनिक कारोबार", level=1)
-    t4 = doc.add_table(rows=1, cols=2)
-    t4.style = 'Table Grid'
-    hdr_cells4 = t4.rows[0].cells
-    hdr_cells4[0].text, hdr_cells4[1].text = 'Day End अवस्था विवरण', 'जम्मा दिन संख्या'
-    
-    for _, row in df_de_edit.iterrows():
-        rc = t4.add_row().cells
-        rc[0].text = str(row["Day End अवस्था विवरण"])
-        rc[1].text = str(row["जम्मा दिन संख्या"])
+    r3.text, r3.text, r3.text = "फरक रकम", f"रु. {farak_amount:,}/-", remarks_str
 
     bio = io.BytesIO()
     doc.save(bio)
     bio.seek(0)
     return bio
 
-# Export button
+# Sidebar trigger for word file
 st.sidebar.markdown("---")
 st.sidebar.download_button(
     label="📝 Word (.docx) डाउनलोड गर्नुहोस्",
